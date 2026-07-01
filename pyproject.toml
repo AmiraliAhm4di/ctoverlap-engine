@@ -1,0 +1,14 @@
+[project]
+name = "ctoverlap"
+version = "0.1.0"
+description = "Clinical trial overlap engine"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.32"
+]
+
+[project.scripts]
+ctoverlap = "ctoverlap.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
