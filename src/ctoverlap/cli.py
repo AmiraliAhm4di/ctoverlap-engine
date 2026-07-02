@@ -1,6 +1,8 @@
 # Command line interface
 # This script reads the commands typed in terminal and routes it to the correct project task
 
+from ctoverlap.download import download_one_condition
+
 import argparse
 
 def main():
@@ -9,7 +11,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "download":
-        print("Running download...")
+        download_one_condition()
 
     elif args.command == "clean":
         print("Running clean...")
