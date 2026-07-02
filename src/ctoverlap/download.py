@@ -1,3 +1,6 @@
+# Download raw ClinicalTrials.gov study records for the project's supported cancer conditions
+# This script queries ClinicalTrials.gov and saves the original JSON response, and writes extraction metadata.
+
 import requests
 import json
 from datetime import datetime, timezone
@@ -5,9 +8,11 @@ from pathlib import Path
 import os
 
 
+
 API_URL = "https://clinicaltrials.gov/api/v2/studies"
 DEFAULT_CONDITION = "colorectal cancer"
 PROJECT_VERSION = "0.1.0"
+SUPPORTED_CONDITIONS = ["colorectal cancer", "melanoma", "breast cancer"]
 
 def fetch_studies(condition):
     parameters = {
@@ -34,6 +39,7 @@ def download_one_condition(condition="colorectal cancer"):
 
     data = fetch_studies(condition)
 
+    # Saved because ongoing trials without end dates are later counted only up to this date
     extraction_date = datetime.now(timezone.utc).isoformat()
 
     studies = data.get("studies", [])
@@ -59,3 +65,8 @@ def download_one_condition(condition="colorectal cancer"):
         The records have been saved to {raw_output_path}
         The metadata has been saved to {metadata_output_path}
           """)
+    
+def download_all():
+    # The first version of this project intentionally supports only these three conditions
+    for condition in SUPPORTED_CONDITIONS:
+        download_one_condition(condition)
