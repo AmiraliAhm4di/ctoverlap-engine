@@ -3,6 +3,7 @@
 
 from ctoverlap.download import download_one_condition
 from ctoverlap.download import download_all
+from ctoverlap.inspect_fields import inspect_fields
 
 import argparse
 
@@ -11,7 +12,8 @@ def main():
     parser.add_argument("command", choices=[
         "download", 
         "clean", 
-        "analyze"
+        "analyze",
+        "inspect-fields",
         ])
     parser.add_argument("condition", nargs="?", default="all", choices=[
         "all",
@@ -19,7 +21,7 @@ def main():
         "melanoma",
         "breast cancer",
     ])
-
+    
     args = parser.parse_args()
 
     if args.command == "download":
@@ -43,6 +45,19 @@ def main():
 
     elif args.command == "analyze":
         print("Running analyze...")
+
+    elif args.command == "inspect-fields":
+        if args.condition == "all":
+            print("Please select a valid condition.")
+        elif args.condition == "colorectal cancer":
+            print("Inspecting colorectal cancer...")
+            inspect_fields("colorectal cancer")
+        elif args.condition == "melanoma":
+            print("Inspecting melanoma...")
+            inspect_fields("melanoma")
+        elif args.condition == "breast cancer":
+            print("Inspecting breast cancer...")
+            inspect_fields("breast cancer")
 
     else:
         print("Unrecognized command")
