@@ -1,11 +1,10 @@
-# Download raw ClinicalTrials.gov study records for the project's supported cancer conditions
-# This script queries ClinicalTrials.gov and saves the original JSON response, and writes extraction metadata.
+# Raw data downloader
+# This script downloads ClinicalTrials.gov records for the supported cancer conditions and saves the raw JSON plus extraction metadata
 
 import requests
 import json
 from datetime import datetime, timezone
 from pathlib import Path
-import os
 
 
 

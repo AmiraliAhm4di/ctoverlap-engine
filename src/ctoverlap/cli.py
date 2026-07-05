@@ -4,6 +4,7 @@
 from ctoverlap.download import download_one_condition
 from ctoverlap.download import download_all
 from ctoverlap.inspect_fields import inspect_fields
+from ctoverlap.clean import save_cleaned
 
 import argparse
 
@@ -41,7 +42,8 @@ def main():
             print("Unsupported Condition, please try again")
 
     elif args.command == "clean":
-        print("Running clean...")
+        print("Cleaning started...")
+        save_cleaned()
 
     elif args.command == "analyze":
         print("Running analyze...")
