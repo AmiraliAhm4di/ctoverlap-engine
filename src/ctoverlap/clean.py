@@ -4,7 +4,8 @@
 import json
 import csv
 from pathlib import Path
-
+from ctoverlap.intervals import trial_interval
+from ctoverlap.phases import phase_cleaner
 
 SUPPORTED_CONDITIONS = ["colorectal cancer", "melanoma", "breast cancer"]
 
@@ -75,6 +76,8 @@ def clean(condition):
         final_intervention_names = ", ".join(filter(None, raw_intervention_names))
         final_intervention_types = ", ".join(filter(None, raw_intervention_types))
 
+        cleaned_phase = phase_cleaner(phase)
+
         row["NCT ID"] = nct_id
         row["brief title"] = brief_title
         row["condition names"] = condition_names
@@ -82,31 +85,46 @@ def clean(condition):
         row["start date"] = start_date
         row["completion date"] = completion_date
         row["primary completion date"] = primary_completion
-        row["phase"] = phase
+        row["phase"] = cleaned_phase
         row["country"] = final_countries
         row["sponsor name"] = sponsor_name
         row["intervention type"] = final_intervention_types
         row["intervention name"] = final_intervention_names
         row["extraction date"] = extraction_date
         row["original condition query"] = original_condition_query
+        final_start, final_end, end_source, overlap_eligible, exclusion_reason = trial_interval(row)
+
+        row["start_date"] = final_start
+        row["end_date"] = final_end
+        row["end_date_source"] = end_source
+        row["overlap_eligible"] = overlap_eligible
+        row["exclusion_reason"] = exclusion_reason
+
         rows.append(row)
 
     return rows
 
 def clean_all():
     all_rows = []
+    excluded_rows = []
 
     # Clean each supported condition and combine the rows
     for conditions in SUPPORTED_CONDITIONS:
         condition_rows = clean(conditions)
+
+        for item in condition_rows:
+            if item.get("overlap_eligible") is False:
+                excluded_rows.append(item)
         all_rows.extend(condition_rows)
-    return all_rows
+        
+    return all_rows, excluded_rows
 
 def save_cleaned():
     output_path = Path("data/processed/cleaned_trials.csv")
+    excluded_output_path = Path("data/processed/excluded_trials.csv")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    cleaned_data = clean_all()
+    cleaned_data, excluded_data = clean_all()
 
     if not cleaned_data:
         print("No data found")
@@ -122,4 +140,18 @@ def save_cleaned():
               Saved cleaned data to data/processed/cleaned_trials.csv
               Number of rows saved: {len(cleaned_data)}
               """)
+    if not excluded_data:
+        print("No excluded trials found")
+    else:
+        with open(excluded_output_path, newline="", mode="w", encoding="utf-8") as file:
 
+            headers = excluded_data[0].keys()
+            
+            writer = csv.DictWriter(file, fieldnames=headers)
+            writer.writeheader()
+            writer.writerows(excluded_data)
+
+            print(f"""
+                Saved excluded data to data/processed/excluded_trials.csv
+                Number of rows saved: {len(excluded_data)}
+                """)

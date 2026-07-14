@@ -7,7 +7,7 @@ from datetime import datetime
 nodata_values = ["unknown", "n/a", "not available", "na", "none", "null", "missing", "not provided", "not listed"]
 
 # Common date formats used
-formats = ["%B %d, %Y", "%B %Y", "%Y", "%m/%d/%Y", "%Y-%m"]
+formats = ["%B %d, %Y", "%B %Y", "%Y", "%m/%d/%Y", "%Y-%m", "%Y-%m-%d"]
 
 def parse_trial_date(date):
 
