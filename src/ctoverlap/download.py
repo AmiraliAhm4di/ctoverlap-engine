@@ -6,8 +6,6 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-
-
 API_URL = "https://clinicaltrials.gov/api/v2/studies"
 DEFAULT_CONDITION = "colorectal cancer"
 PROJECT_VERSION = "0.1.0"
@@ -21,15 +19,17 @@ def fetch_studies(condition):
         "countTotal": "true"
     }
     response = requests.get(API_URL, params=parameters, timeout=20)
+
     response.raise_for_status()
     data = response.json()
+
     return data
 
 def save_json(data, output_path):
     with open (output_path, "w") as json_file:
         json.dump(data, json_file)
 
-def download_one_condition(condition="colorectal cancer"):
+def download_one_condition(condition=DEFAULT_CONDITION):
     parent_dir = Path("data")
     raw_path = parent_dir / "raw"
     raw_path.mkdir(parents=True, exist_ok=True)
@@ -38,7 +38,7 @@ def download_one_condition(condition="colorectal cancer"):
 
     data = fetch_studies(condition)
 
-    # Saved because ongoing trials without end dates are later counted only up to this date
+    # Saved because ongoing trials without end dates are counted only up to this date
     extraction_date = datetime.now(timezone.utc).isoformat()
 
     studies = data.get("studies", [])
@@ -58,12 +58,10 @@ def download_one_condition(condition="colorectal cancer"):
     save_json(data, raw_output_path)
     save_json(metadata, metadata_output_path)
 
-    print(f"""
-        Download for {condition} has been successfully completed!
-        Number of records downloaded: {len(studies)}
-        The records have been saved to {raw_output_path}
-        The metadata has been saved to {metadata_output_path}
-          """)
+    print(f"Download for {condition} has been successfully completed!")
+    print(f"Number of records downloaded: {len(studies)}")
+    print(f"The records have been saved to {raw_output_path}")
+    print(f"The metadata has been saved to {metadata_output_path}")
     
 def download_all():
     # The first version of this project intentionally supports only these three conditions

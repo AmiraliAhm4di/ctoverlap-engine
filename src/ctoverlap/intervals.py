@@ -2,21 +2,28 @@
 # This script makes the cleaned trial date and status fields overlap ready
 
 from ctoverlap.dates import parse_trial_date
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_PROCESSED = PROJECT_ROOT / "data" / "processed"
-csv_path = DATA_PROCESSED / "cleaned_trials.csv"
 
 # Status groups are used only when a trial has no usable completion date
-not_ended_statuses = ["active_not_recruiting", "recruiting", "not_yet_recruiting"]
-ended_statuses = ["completed", "terminated", "withdrawn", "suspended"]
+NOT_ENDED_STATUSES = {
+    "active_not_recruiting",
+    "recruiting",
+    "not_yet_recruiting",
+    "enrolling_by_invitation",
+}
+
+ENDED_STATUSES = {
+    "completed",
+    "terminated",
+    "withdrawn",
+    "suspended",
+}
 
 def extraction_cleaner(timestamp):
     # Extraction timestamps have time data as well but the interval logic only needs the date
+    if not isinstance(timestamp, str):
+        return None
+
     return timestamp[:10]
-
-
 
 def trial_interval(data):
 
@@ -46,11 +53,11 @@ def trial_interval(data):
         return start_final, primary_final, "primary_completion_date", True, None
     
     # Ongoing trials with no end date stay active until the data was downloaded
-    elif overall_final in not_ended_statuses:
+    elif overall_final in NOT_ENDED_STATUSES:
         return start_final, extraction_final, "extraction_date_for_ongoing_trial", True, None
     
     # Closed trials without an end date cannot be used
-    elif overall_final in ended_statuses:
+    elif overall_final in ENDED_STATUSES:
         return start_final, None, "missing", False, "missing_end_date_for_closed_trial"
     
     # Exclude ones with an unknown status and no end date

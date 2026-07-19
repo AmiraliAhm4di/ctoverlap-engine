@@ -2,37 +2,58 @@
 # This script converts ClinicalTrials.gov phase values into consistent phase buckets
 
 POSSIBLE_PHASES = {
-    ("EARLY_PHASE1",): "Early Phase 1",
-    ("PHASE1",): "Phase 1",
-    ("PHASE2",): "Phase 2",
-    ("PHASE3",): "Phase 3",
-    ("PHASE4",): "Phase 4",
-    ("PHASE1", "PHASE2"): "Phase 1/2",
-    ("PHASE2", "PHASE3"): "Phase 2/3",
+    frozenset({"EARLY_PHASE1"}): "Early Phase 1",
+    frozenset({"PHASE1"}): "Phase 1",
+    frozenset({"PHASE2"}): "Phase 2",
+    frozenset({"PHASE3"}): "Phase 3",
+    frozenset({"PHASE4"}): "Phase 4",
+    frozenset({"PHASE1", "PHASE2"}): "Phase 1/2",
+    frozenset({"PHASE2", "PHASE3"}): "Phase 2/3",
 }
 
+MISSING_PHASE_VALUES = {
+    "",
+    "NOT_APPLICABLE",
+    "NONE",
+    "N/A",
+    "NA",
+    "UNSPECIFIED",
+    "UNKNOWN",
+    "NULL",
+    "NOT APPLICABLE",
+}
 
+VALID_PHASE_VALUES = set().union(*POSSIBLE_PHASES)
 
-def phase_cleaner(phase):
-    if phase is None or phase == "" or phase == []:
-        return "Unspecified / Not Applicable"
-
-    # Support for plain strings
-    if isinstance(phase, str):
-        phase = [phase]
-
-    if not isinstance(phase, list):
+def phase_cleaner(phase_value):
+    if phase_value is None:
         return "Unspecified / Not Applicable"
     
-    cleaned_list = set()
+    # Support for plain strings
+    if isinstance(phase_value, str):
+        phase_value = [phase_value]
 
-    for item in phase:
-        if isinstance(item, str) and item.strip():
-            clean_item = item.strip().upper()
-            cleaned_list.add(clean_item)
-
-    if not cleaned_list or cleaned_list == {"NA"}:
+    # Reject unexpected input types
+    if not isinstance(phase_value, (list, tuple)):
         return "Unspecified / Not Applicable"
+    
+    # Set stops duplicate phase values
+    cleaned_phases = set()
 
-    # Convert to a sorted tuple to match the dictionary keys in POSSIBLE_PHASES
-    return POSSIBLE_PHASES.get(tuple(sorted(cleaned_list)), "Unspecified / Not Applicable")
+    for phase_item in phase_value:
+        if not isinstance(phase_item, str):
+            continue
+
+        cleaned_phase = phase_item.strip().upper()
+        if cleaned_phase in MISSING_PHASE_VALUES:
+            continue
+
+        if cleaned_phase not in VALID_PHASE_VALUES:
+            return "Unspecified / Not Applicable"
+
+        cleaned_phases.add(cleaned_phase)
+    if not cleaned_phases:
+        return "Unspecified / Not Applicable"
+    
+    # Match the cleaned phase values to the correct phase category
+    return POSSIBLE_PHASES.get(frozenset(cleaned_phases),"Unspecified / Not Applicable",)
