@@ -72,9 +72,9 @@ def clean(condition):
         original_condition_query = metadata.get("condition_query", "")
 
         # Remove missing values before combining repeated fields into comma separated strings
-        final_countries = ", ".join(filter(None, raw_countries))
-        final_intervention_names = ", ".join(filter(None, raw_intervention_names))
-        final_intervention_types = ", ".join(filter(None, raw_intervention_types))
+        final_countries = list(filter(None, raw_countries))
+        final_intervention_names = list(filter(None, raw_intervention_names))
+        final_intervention_types = list(filter(None, raw_intervention_types))
 
         cleaned_phase = phase_cleaner(phase)
 
@@ -86,10 +86,10 @@ def clean(condition):
         row["completion date"] = completion_date
         row["primary completion date"] = primary_completion
         row["phase"] = cleaned_phase
-        row["country"] = final_countries
+        row["countries"] = final_countries
         row["sponsor name"] = sponsor_name
-        row["intervention type"] = final_intervention_types
-        row["intervention name"] = final_intervention_names
+        row["intervention types"] = final_intervention_types
+        row["intervention names"] = final_intervention_names
         row["extraction date"] = extraction_date
         row["original condition query"] = original_condition_query
         final_start, final_end, end_source, overlap_eligible, exclusion_reason = trial_interval(row)

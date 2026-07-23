@@ -3,6 +3,8 @@ __pycache__/
 .venv/
 .env
 *.egg-info/
+*.vscode
+*.duckdb.exe
 
 data/raw/*
 !data/raw/.gitkeep
