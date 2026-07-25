@@ -43,7 +43,8 @@ def get_intervals_by_phase(condition, phase):
     return result
 
 
-def get_phases_for_condition(phase, condition):
+
+def get_phases_for_condition(condition):
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT DISTINCT "phase"
@@ -52,10 +53,10 @@ def get_phases_for_condition(phase, condition):
     AND "original condition query" = ?
     ORDER BY "phase";
     """
-    result = con.execute(query, [phase, condition]).fetchall()
+    result = con.execute(query, [condition]).fetchall()
 
     phases = []
-    for phases in result:
+    for phase in result:
         phases.append(phase[0])
 
     con.close()
@@ -142,17 +143,17 @@ def build_condition_density_rows(condition):
 
     return finished_rows
 
-def build_phase_density_rows(phase, condition):
-    raw_intervals = get_intervals_by_phase(phase, condition)
+def build_phase_density_rows(condition, phase):
+    raw_intervals = get_intervals_by_phase(condition, phase)
     converted_intervals = convert_intervals(raw_intervals)
     trial_total = len(converted_intervals)
 
     if trial_total < 5:
         skipped_row = (
             None,
-            "condition",
+            "condition_phase",
             condition,
-            None,
+            phase,
             None,
             None,
             None,
@@ -174,9 +175,9 @@ def build_phase_density_rows(phase, condition):
 
         density_row = (
             month,
-            "condition",
+            "condition_phase",
             condition,
-            None,
+            phase,
             None,
             None,
             active_count,
@@ -437,3 +438,5 @@ def load_monthly_density():
     print(f"Database rows inserted: {database_count}")
 
     con.close()
+
+load_monthly_density()
