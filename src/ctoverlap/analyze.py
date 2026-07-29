@@ -439,4 +439,5 @@ def load_monthly_density():
 
     con.close()
 
-load_monthly_density()
+if __name__ == "__main__":
+    load_monthly_density()
