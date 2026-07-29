@@ -5,6 +5,7 @@ from ctoverlap.download import download_one_condition
 from ctoverlap.download import download_all
 from ctoverlap.inspect_fields import inspect_fields
 from ctoverlap.clean import save_cleaned
+from ctoverlap.export import export_all_density
 
 import argparse
 
@@ -60,6 +61,10 @@ def main():
         elif args.condition == "breast cancer":
             print("Inspecting breast cancer...")
             inspect_fields("breast cancer")
+
+    elif args.command == "export":
+        export_all_density()
+        print("Exporting...")
 
     else:
         print("Unrecognized command")
