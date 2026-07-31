@@ -4,10 +4,11 @@ __pycache__/
 .env
 *.egg-info/
 *.vscode
-*.duckdb.exe
 
-data/raw/*
-!data/raw/.gitkeep
+
+*.duckdb
+*.duckdb.wal
+*.duckdb.exe
 
 data/processed/*
 !data/processed/.gitkeep
@@ -15,19 +16,14 @@ data/processed/*
 data/database/*
 !data/database/.gitkeep
 
-outputs/tables/*
-!outputs/tables/.gitkeep
+!outputs/
+!outputs/tables/
+!outputs/tables/**
+!outputs/figures/
+!outputs/figures/**
+!outputs/report/
+!outputs/report/**
 
-outputs/figures/*
-!outputs/figures/.gitkeep
-
-outputs/report/*
-!outputs/report/.gitkeep
-
-*.duckdb
-*.duckdb.wal
-
+Rplots.pdf
 .Rhistory
 .RData
-.DS_Store
-

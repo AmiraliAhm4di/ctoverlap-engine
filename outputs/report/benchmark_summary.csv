@@ -1,0 +1,4 @@
+condition,trial_count,sweep_line_runtime,brute_force_runtime,speedup,outputs_match,sweep_line_ms,brute_force_ms
+colorectal cancer,985,0.03972820000126376,0.05120499999975436,1.29,TRUE,39.7,51.2
+melanoma,974,0.04345069999908446,0.05705909999960568,1.31,TRUE,43.5,57.1
+breast cancer,982,0.04269339999882504,0.0598712000028172,1.4,TRUE,42.7,59.9
