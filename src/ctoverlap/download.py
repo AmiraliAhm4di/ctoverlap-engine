@@ -12,18 +12,39 @@ PROJECT_VERSION = "0.1.0"
 SUPPORTED_CONDITIONS = ["colorectal cancer", "melanoma", "breast cancer"]
 
 def fetch_studies(condition):
-    parameters = {
-        "query.cond" : condition,
-        "format" : "json",
-        "pageSize": 1000,
-        "countTotal": "true"
-    }
-    response = requests.get(API_URL, params=parameters, timeout=20)
+    all_studies = []
+    next_page_token = None
 
-    response.raise_for_status()
-    data = response.json()
+    while True:
+        parameters = {
+            "query.cond" : condition,
+            "format" : "json",
+            "pageSize": 1000,
+            "countTotal": "true"
+        }
 
-    return data
+        if next_page_token is not None:
+            parameters["pageToken"] = next_page_token
+
+        response = requests.get(API_URL, params=parameters, timeout=60)
+        response.raise_for_status()
+        data = response.json()
+
+        studies = data.get("studies", [])
+        all_studies.extend(studies)
+
+        print(f"Downloaded {len(all_studies)} records")
+        print(f"for {condition}")
+
+        next_page_token = data.get("nextPageToken")
+
+        if not next_page_token:
+            break
+
+        return {"studies": all_studies,
+                "totalCount": len(all_studies),
+                }
+
 
 def save_json(data, output_path):
     with open (output_path, "w") as json_file:

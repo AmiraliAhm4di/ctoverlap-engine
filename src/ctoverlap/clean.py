@@ -140,18 +140,18 @@ def save_cleaned():
               Saved cleaned data to data/processed/cleaned_trials.csv
               Number of rows saved: {len(cleaned_data)}
               """)
-    if not excluded_data:
-        print("No excluded trials found")
-    else:
-        with open(excluded_output_path, newline="", mode="w", encoding="utf-8") as file:
 
-            headers = excluded_data[0].keys()
-            
-            writer = csv.DictWriter(file, fieldnames=headers)
-            writer.writeheader()
+    with open(excluded_output_path, newline="", mode="w", encoding="utf-8") as file:
+
+        headers = excluded_data[0].keys()
+        
+        writer = csv.DictWriter(file, fieldnames=headers)
+        writer.writeheader()
+
+        if excluded_data:
             writer.writerows(excluded_data)
 
-            print(f"""
-                Saved excluded data to data/processed/excluded_trials.csv
-                Number of rows saved: {len(excluded_data)}
-                """)
+        print(f"""
+            Saved excluded data to data/processed/excluded_trials.csv
+            Number of rows saved: {len(excluded_data)}
+            """)

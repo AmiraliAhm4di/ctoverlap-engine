@@ -34,13 +34,17 @@ cond_colors <- c("breast cancer" = "#F8766D", "colorectal cancer" = "#00BA38", "
 # keep the highest activity month for each condition
 peaks <- monthly_density %>% group_by(condition_query) %>% slice_max(active_trial_count, n=1, with_ties=FALSE)
 peaks$label <- paste0(peaks$active_trial_count, " trials\n", format(peaks$month, "%b %Y"))
+peaks$label_y <- peaks$active_trial_count + rank(peaks$active_trial_count) * 20
+last_active_month <- max(monthly_density$month[monthly_density$active_trial_count > 5])
 
 p1 <- ggplot(monthly_density, aes(x = month, y = active_trial_count, color = condition_query)) +
   geom_line(size = 0.9) +
   geom_point(data = peaks, size = 2.5) +
-  geom_text(data = peaks, aes(label = label), vjust = -0.7, size = 3.2, show.legend = F) +
+  geom_text(data = peaks, aes(label = label, y = label_y), vjust = 0, size = 3.2, show.legend = F) +
+  ylim(0, max(monthly_density$active_trial_count) * 1.3) +
   scale_color_manual(values = cond_colors) +
   scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
+  coord_cartesian(xlim = c(min(monthly_density$month), last_active_month)) +
   labs(title = "Monthly Active Clinical Trials by Cancer Condition",
        x = "Month", y = "Number of active trials", color = "Condition") +
   theme_minimal()
@@ -72,7 +76,9 @@ p2 <- ggplot(phase_peak, aes(x = phase_bucket, y = active_trial_count, fill = co
   scale_fill_manual(values = cond_colors) +
   labs(title = "Peak Concurrent Trial Activity by Phase", x = "Trial phase", y = "Peak active trials", fill = "Condition") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
+  theme(plot.title = element_text(face = "bold", size = 14),
+      panel.grid.minor = element_blank())
 
 ggsave(file.path(output_figures, "peak_trial_density_by_phase.png"), p2, width = 11, height = 6.5)
 
@@ -95,6 +101,7 @@ p3 <- ggplot(country_peak, aes(x = reorder(country, active_trial_count), y = act
   coord_flip() +
   facet_wrap(~condition_query, scales = "free_y") +
   scale_fill_manual(values = cond_colors) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(title = "Countries With the Highest Concurrent Trial Activity", x = "", y = "Peak active trials") +
   guides(fill = "none") +
   theme_minimal()
@@ -120,6 +127,7 @@ p4 <- ggplot(intervention_peak, aes(x = reorder(intervention_label, active_trial
   coord_flip() +
   facet_wrap(~condition_query, scales = "free_y") +
   scale_fill_manual(values = cond_colors) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(title = "Highest Concurrent Trial Activity by Intervention Type", x = "", y = "Peak active trials") +
   guides(fill = "none") +
   theme_minimal()

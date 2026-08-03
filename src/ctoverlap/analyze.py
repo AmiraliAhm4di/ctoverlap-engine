@@ -6,9 +6,6 @@ from pathlib import Path
 import duckdb
 from ctoverlap.sweep_line import sweep_line
 from ctoverlap.sweep_line import dates_into_months
-from ctoverlap.sweep_line import next_month
-from ctoverlap.sweep_line import previous_month
-from datetime import date
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -16,8 +13,19 @@ DATA_PROCESSED = PROJECT_ROOT / "data" / "processed"
 DATABASE = PROJECT_ROOT / "data" / "database"
 DUCKDB_DATABASE = DATABASE / "clinical_trials.duckdb"
 
+SUPPORTED_CONDITIONS = [
+    "colorectal cancer",
+    "melanoma",
+    "breast cancer",
+]
+
+def check_database():
+    if not DUCKDB_DATABASE.exists():
+        raise FileNotFoundError(f"Database was not found: {DUCKDB_DATABASE}")
+
 
 def get_interval_one_condition(condition):
+    check_database()
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT start_date, end_date
@@ -30,6 +38,7 @@ def get_interval_one_condition(condition):
     return result
 
 def get_intervals_by_phase(condition, phase):
+    check_database()    
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT start_date, end_date
@@ -42,9 +51,8 @@ def get_intervals_by_phase(condition, phase):
     con.close()
     return result
 
-
-
 def get_phases_for_condition(condition):
+    check_database()  
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT DISTINCT "phase"
@@ -57,27 +65,35 @@ def get_phases_for_condition(condition):
 
     phases = []
     for phase in result:
-        phases.append(phase[0])
+        if phase[0] is not None:
+            phases.append(phase[0])
 
     con.close()
     return phases
 
-
 def convert_intervals(intervals):
+    check_database()  
     converted_intervals = []
 
     for start, end in intervals:
+        if start is None or end is None:
+            continue
+
         start_v1 = start.strftime("%Y-%m-%d")
         new_start = dates_into_months(start_v1)
 
         end_v1 = end.strftime("%Y-%m-%d")
         new_end = dates_into_months(end_v1)
 
+        if new_end < new_start:
+            continue
+
         converted_intervals.append((new_start, new_end))
 
     return converted_intervals
 
 def start_end_counter(intervals):
+    check_database()  
     start_count = {}
     end_count = {}
 
@@ -94,8 +110,8 @@ def start_end_counter(intervals):
 
     return start_count, end_count
 
-
 def build_condition_density_rows(condition):
+    check_database()  
     raw_intervals = get_interval_one_condition(condition)
     converted_intervals = convert_intervals(raw_intervals)
     trial_total = len(converted_intervals)
@@ -144,6 +160,7 @@ def build_condition_density_rows(condition):
     return finished_rows
 
 def build_phase_density_rows(condition, phase):
+    check_database()  
     raw_intervals = get_intervals_by_phase(condition, phase)
     converted_intervals = convert_intervals(raw_intervals)
     trial_total = len(converted_intervals)
@@ -191,8 +208,8 @@ def build_phase_density_rows(condition, phase):
 
     return finished_rows
 
-
 def get_countries_for_condition(condition):
+    check_database()  
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT DISTINCT trial_countries.country_name
@@ -207,28 +224,33 @@ def get_countries_for_condition(condition):
 
     countries = []
     for country in result:
-        countries.append(country[0])
+        if country[0] is not None:
+            countries.append(country[0])
 
     con.close()
     return countries
 
 def get_intervals_by_country(condition, country):
+    check_database()  
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT trials.start_date, trials.end_date
     FROM trials
-    JOIN trial_countries
-    ON trials."NCT ID" = trial_countries.nct_id
+    JOIN (
+        SELECT DISTINCT nct_id, country_name
+        FROM trial_countries
+    ) AS country_groups
+    ON trials."NCT ID" = country_groups.nct_id
     WHERE trials.overlap_eligible = TRUE
-    AND trial_countries.country_name = ?
+    AND country_groups.country_name = ?
     AND trials."original condition query" = ?;
     """
     result = con.execute(query, [country, condition]).fetchall()
     con.close()
     return result
 
-
 def build_country_density_rows(condition, country):
+    check_database()  
     raw_intervals = get_intervals_by_country(condition, country)
     converted_intervals = convert_intervals(raw_intervals)
     trial_total = len(converted_intervals)
@@ -276,8 +298,8 @@ def build_country_density_rows(condition, country):
 
     return finished_rows
 
-
 def get_intervention_types_for_condition(condition):
+    check_database()  
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT DISTINCT trial_interventions.intervention_type
@@ -293,12 +315,14 @@ def get_intervention_types_for_condition(condition):
 
     intervention_types = []
     for intervention_type in result:
-        intervention_types.append(intervention_type[0])
+        if intervention_type[0] is not None:
+            intervention_types.append(intervention_type[0])
 
     con.close()
     return intervention_types
 
 def get_intervals_by_intervention_type(condition, intervention_type):
+    check_database()  
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT trials.start_date, trials.end_date
@@ -316,8 +340,8 @@ def get_intervals_by_intervention_type(condition, intervention_type):
     con.close()
     return result
 
-
 def build_intervention_density_rows(condition, intervention_type):
+    check_database()  
     raw_intervals = get_intervals_by_intervention_type(condition, intervention_type)
     converted_intervals = convert_intervals(raw_intervals)
     trial_total = len(converted_intervals)
@@ -366,6 +390,7 @@ def build_intervention_density_rows(condition, intervention_type):
     return finished_rows
 
 def build_all_density_rows():
+    check_database()  
     conditions = [
         "colorectal cancer",
         "melanoma",
@@ -401,8 +426,8 @@ def build_all_density_rows():
 
     return finished_rows
 
-
 def load_monthly_density():
+    check_database()  
     finished_rows = build_all_density_rows()
 
     con = duckdb.connect(str(DUCKDB_DATABASE))

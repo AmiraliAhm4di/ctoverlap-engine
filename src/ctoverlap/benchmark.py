@@ -14,8 +14,16 @@ DATABASE = PROJECT_ROOT / "data" / "database"
 DUCKDB_DATABASE = DATABASE / "clinical_trials.duckdb"
 OUTPUT_TABLES = PROJECT_ROOT / "outputs" / "tables"
 
+SUPPORTED_CONDITIONS = [
+    "colorectal cancer",
+    "melanoma",
+    "breast cancer",
+]
 
 def get_interval(condition):
+    if not DUCKDB_DATABASE.exists():
+        raise FileNotFoundError(f"Database was not found: {DUCKDB_DATABASE}")
+
     con = duckdb.connect(str(DUCKDB_DATABASE))
     query = """
     SELECT start_date, end_date
@@ -27,11 +35,12 @@ def get_interval(condition):
     con.close()
     return result
 
-
 def benchmark_condition(condition):
     raw_intervals = get_interval(condition)
     converted_intervals = convert_intervals(raw_intervals)
     amount = len(converted_intervals)
+    if amount == 0:
+        raise ValueError(f"No eligible trial intervals were found for {condition}")
 
     start_time = time.perf_counter()
     maximum_overlap, event_months, sweep_output = sweep_line(converted_intervals)
@@ -44,7 +53,10 @@ def benchmark_condition(condition):
     brute_runtime = end_time - start_time
 
     outputs_match = sweep_output == brute_output
-    speedup = brute_runtime / sweep_runtime
+    if sweep_runtime == 0:
+        speedup = None
+    else:
+        speedup = brute_runtime / sweep_runtime
 
     result = {
         "condition": condition,
@@ -56,29 +68,6 @@ def benchmark_condition(condition):
     }
 
     return result
-
-
-conditions = [
-    "colorectal cancer",
-    "melanoma",
-    "breast cancer",
-]
-
-benchmark_results = []
-
-for condition in conditions:
-    result = benchmark_condition(condition)
-    benchmark_results.append(result)
-
-for result in benchmark_results:
-    print(f"""
-Condition: {result["condition"]}
-Trials tested: {result["trial_count"]}
-Sweep-line runtime: {result["sweep_line_runtime"]:.6f} seconds
-Brute-force runtime: {result["brute_force_runtime"]:.6f} seconds
-Speedup: {result["speedup"]:.2f}x
-Outputs match: {result["outputs_match"]}
-""")
 
 def save_results(benchmark_results):
     con = duckdb.connect(str(DUCKDB_DATABASE))
@@ -109,20 +98,24 @@ def save_results(benchmark_results):
             result["outputs_match"],
         ))
 
-    con.executemany("""
-        INSERT INTO benchmark_results (
-            condition,
-            trial_count,
-            sweep_line_runtime,
-            brute_force_runtime,
-            speedup,
-            outputs_match
-        )
-        VALUES (?, ?, ?, ?, ?, ?);
-    """, rows)
+    if len(rows) > 0:
+        con.executemany("""
+            INSERT INTO benchmark_results (
+                condition,
+                trial_count,
+                sweep_line_runtime,
+                brute_force_runtime,
+                speedup,
+                outputs_match
+            )
+            VALUES (?, ?, ?, ?, ?, ?);
+        """, rows)
+
+    database_count = con.execute("""SELECT COUNT(*) FROM benchmark_results""").fetchone()[0]
+    print(f"Benchmark rows prepared: {len(rows)}")
+    print(f"Database rows inserted: {database_count}")
 
     con.close()
-
 
 def export_benchmark_results():
     OUTPUT_TABLES.mkdir(parents=True, exist_ok=True)
@@ -137,9 +130,34 @@ def export_benchmark_results():
     """)
 
     con.close()
+    print(f"Benchmark results exported to {output_file}")
 
+def run_benchmarks():
+    benchmark_results = []
 
-save_results(benchmark_results)
-export_benchmark_results()
+    for condition in SUPPORTED_CONDITIONS:
+        result = benchmark_condition(condition)
+        benchmark_results.append(result)
 
-print("Benchmark results saved to DuckDB and exported to CSV.")
+    for result in benchmark_results:
+        if result["speedup"] is None:
+            speedup_text = "not available"
+        else:
+            speedup_text = f'{result["speedup"]:.2f}x'
+
+        print(f"""
+Condition: {result["condition"]}
+Trials tested: {result["trial_count"]}
+Sweep-line runtime: {result["sweep_line_runtime"]:.6f} seconds
+Brute-force runtime: {result["brute_force_runtime"]:.6f} seconds
+Speedup: {speedup_text}
+Outputs match: {result["outputs_match"]}
+""")
+
+    save_results(benchmark_results)
+    export_benchmark_results()
+
+    print("Benchmarking completed.")
+
+if __name__ == "__main__":
+    run_benchmarks()

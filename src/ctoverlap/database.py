@@ -4,7 +4,6 @@
 from pathlib import Path
 import duckdb
 import ast
-import json
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_PROCESSED = PROJECT_ROOT / "data" / "processed"
@@ -18,30 +17,25 @@ def connect_to_database():
     connection = duckdb.connect(str(DUCKDB_DATABASE))
     return connection
 
-connection = connect_to_database()
-
-if DUCKDB_DATABASE.exists():
-    print(f"Database exists: {DUCKDB_DATABASE}")
-else:
-    print(f"Database was not created: {DUCKDB_DATABASE}")
-
-connection.close()
-
 def load_trials():
+    if not CLEANED_TRIALS_CSV.exists():
+        raise FileNotFoundError(f"Cleaned trials file was not found: {CLEANED_TRIALS_CSV}")
+
+    if not EXCLUDED_TRIALS_CSV.exists():
+        raise FileNotFoundError(f"Excluded trials file was not found: {EXCLUDED_TRIALS_CSV}")
+    
     con = connect_to_database()
 
     cleaned_csv_string = CLEANED_TRIALS_CSV.as_posix()
     excluded_csv_string = EXCLUDED_TRIALS_CSV.as_posix()
 
-    con.execute(f"CREATE OR REPLACE TABLE trials AS SELECT * FROM read_csv_auto('{cleaned_csv_string}')")
-    print("Finished loading cleaned trials!")
+    con.execute(f"CREATE OR REPLACE TABLE trials AS SELECT * FROM read_csv_auto('{cleaned_csv_string}', header=True)")
+    print("Finished loading cleaned trials")
 
-    con.execute(f"CREATE OR REPLACE TABLE excluded_trials AS SELECT * FROM read_csv_auto('{excluded_csv_string}')")
-    print("Finished loading excluded trials!")
+    con.execute(f"CREATE OR REPLACE TABLE excluded_trials AS SELECT * FROM read_csv_auto('{excluded_csv_string}', header=True)")
+    print("Finished loading excluded trials")
 
     con.close()
-
-load_trials()
 
 def convert_string_to_list(value):
     if isinstance(value, list):
@@ -66,7 +60,7 @@ def convert_string_to_list(value):
 def build_trial_conditions():
     trial_conditions = []
 
-    con = duckdb.connect(str(DUCKDB_DATABASE))
+    con = connect_to_database()
     query = """
     SELECT "NCT ID", "condition names"
     FROM trials
@@ -78,9 +72,11 @@ def build_trial_conditions():
         nct_id = trial[0]
         condition_name = trial[1]
         condition_final = convert_string_to_list(condition_name)
+        condition_final = list(dict.fromkeys(condition_final))
 
         for condition in condition_final:
-            trial_conditions.append((nct_id, condition))
+            if condition:
+                trial_conditions.append((nct_id, condition))
 
     con.execute("""DROP TABLE IF EXISTS trial_conditions;""")
 
@@ -100,7 +96,7 @@ def build_trial_conditions():
     if len(trial_conditions) > 0:
         con.executemany(query3, trial_conditions)
 
-        database_count = con.execute("""SELECT COUNT(*) FROM trial_conditions""").fetchone()[0]
+    database_count = con.execute("""SELECT COUNT(*) FROM trial_conditions""").fetchone()[0]
 
     print(f"Python rows prepared: {len(trial_conditions)}")
     print(f"Database rows inserted: {database_count}")
@@ -111,12 +107,10 @@ def build_trial_conditions():
 
     con.close()
 
-build_trial_conditions()
-
 def build_trial_countries():
     trial_countries = []
 
-    con = duckdb.connect(str(DUCKDB_DATABASE))
+    con = connect_to_database()
     query = """
     SELECT "NCT ID", "countries"
     FROM trials
@@ -128,10 +122,11 @@ def build_trial_countries():
         nct_id = trial[0]
         country_name = trial[1]
         country_final = convert_string_to_list(country_name)
-        country_final = list(set(country_final))
+        country_final = list(dict.fromkeys(country_final))
 
         for country in country_final:
-            trial_countries.append((nct_id, country))
+            if country:
+                trial_countries.append((nct_id, country))
 
     con.execute("""DROP TABLE IF EXISTS trial_countries;""")
 
@@ -162,12 +157,10 @@ def build_trial_countries():
 
     con.close()
 
-build_trial_countries()
-
 def build_trial_interventions():
     trial_interventions = []
 
-    con = duckdb.connect(str(DUCKDB_DATABASE))
+    con = connect_to_database()
     query = """
     SELECT "NCT ID", "intervention names", "intervention types"
     FROM trials
@@ -188,8 +181,9 @@ def build_trial_interventions():
                 intervention_type_value = intervention_type_final[index]
             else:
                 intervention_type_value = None
-
-            trial_interventions.append((nct_id, intervention, intervention_type_value))
+                
+            if intervention:
+                trial_interventions.append((nct_id, intervention, intervention_type_value))
 
     con.execute("""DROP TABLE IF EXISTS trial_interventions;""")
 
@@ -221,22 +215,19 @@ def build_trial_interventions():
 
     con.close()
 
-build_trial_interventions()
-
 def build_benchmark_results():
-    con = duckdb.connect(str(DUCKDB_DATABASE))
+    con = connect_to_database()
 
     con.execute("""DROP TABLE IF EXISTS benchmark_results;""")
 
     query = """
     CREATE TABLE benchmark_results (
-        condition_name VARCHAR,
+        condition VARCHAR,
         trial_count INTEGER,
         sweep_line_runtime DOUBLE,
         brute_force_runtime DOUBLE,
         speedup DOUBLE,
-        results_match BOOLEAN,
-        benchmark_date TIMESTAMP
+        outputs_match BOOLEAN,
     );
     """
     con.execute(query)
@@ -249,10 +240,8 @@ def build_benchmark_results():
 
     con.close()
 
-build_benchmark_results()
-
 def build_monthly_density():
-    con = duckdb.connect(str(DUCKDB_DATABASE))
+    con = connect_to_database()
 
     con.execute("""DROP TABLE IF EXISTS monthly_density;""")
 
@@ -282,11 +271,24 @@ def build_monthly_density():
 
     con.close()
 
-build_monthly_density()
+def build_database():
+    print("Starting database build...")
 
-con = duckdb.connect(str(DUCKDB_DATABASE))
+    load_trials()
+    build_trial_conditions()
+    build_trial_countries()
+    build_trial_interventions()
+    build_benchmark_results()
+    build_monthly_density()
 
-tables = con.sql("SHOW TABLES").fetchall()
-print(tables)
+    con = connect_to_database()
 
-con.close()
+    tables = con.sql("SHOW TABLES").fetchall()
+    print(f"Database tables: {tables}")
+
+    con.close()
+
+    print(f"Database build completed: {DUCKDB_DATABASE}")
+
+if __name__ == "__main__":
+    build_database()

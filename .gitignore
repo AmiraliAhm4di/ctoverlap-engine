@@ -16,6 +16,9 @@ data/processed/*
 data/database/*
 !data/database/.gitkeep
 
+data/raw/*
+!data/raw/.gitkeep
+
 !outputs/
 !outputs/tables/
 !outputs/tables/**

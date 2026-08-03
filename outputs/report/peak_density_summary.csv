@@ -1,4 +1,4 @@
 condition_query,month,active_trial_count,trial_count_total,peak_year
-breast cancer,2025-10-01,269,982,2025
-colorectal cancer,2024-09-01,275,985,2024
-melanoma,2022-06-01,286,974,2022
+breast cancer,2024-12-01,256,986,2024
+colorectal cancer,2024-09-01,243,992,2024
+melanoma,2023-06-01,278,980,2023
