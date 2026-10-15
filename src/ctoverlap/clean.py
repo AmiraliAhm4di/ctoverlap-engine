@@ -143,7 +143,7 @@ def save_cleaned():
 
     with open(excluded_output_path, newline="", mode="w", encoding="utf-8") as file:
 
-        headers = excluded_data[0].keys()
+        headers = cleaned_data[0].keys()
         
         writer = csv.DictWriter(file, fieldnames=headers)
         writer.writeheader()

@@ -31,19 +31,19 @@ def fetch_studies(condition):
         data = response.json()
 
         studies = data.get("studies", [])
-        all_studies.extend(studies)
+        all_studies.extend(studies[:1000 - len(all_studies)])
 
         print(f"Downloaded {len(all_studies)} records")
         print(f"for {condition}")
 
         next_page_token = data.get("nextPageToken")
 
-        if not next_page_token:
+        if not next_page_token or len(all_studies) >= 1000:
             break
 
-        return {"studies": all_studies,
-                "totalCount": len(all_studies),
-                }
+    return {"studies": all_studies,
+            "totalCount": data.get("totalCount", len(all_studies)),
+            }
 
 
 def save_json(data, output_path):

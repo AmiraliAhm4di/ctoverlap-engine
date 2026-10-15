@@ -43,6 +43,16 @@ def trial_interval(data):
     # A trial cannot be analyzed if it doesn't have a start date
     if start_final is None:
         return None, None, "missing", False, "missing_start_date"
+
+    end_final = completion_final
+    if end_final is None:
+        end_final = primary_final
+    if end_final is None and overall_final in NOT_ENDED_STATUSES:
+        end_final = extraction_final
+        if end_final is None:
+            return start_final, None, "missing", False, "missing_extraction_date"
+    if end_final is not None and end_final < start_final:
+        return start_final, end_final, "missing", False, "end_before_start"
     
     # Use the completion date if it exists
     if completion_final is not None:

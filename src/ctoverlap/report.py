@@ -1,6 +1,3 @@
-
-
-
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,11 +13,11 @@ def run_report():
 
     if rscript_path is None:
         print("Error: Rscript is not installed or not in your PATH.")
-        return
+        raise SystemExit(1)
 
     if not REPORT_SCRIPT.exists():
         print(f"Error: Report script was not found at {REPORT_SCRIPT}")
-        return
+        raise SystemExit(1)
     try:
         subprocess.run(
             [rscript_path, str(REPORT_SCRIPT)], cwd=PROJECT_ROOT, check=True
@@ -28,7 +25,6 @@ def run_report():
 
     except subprocess.CalledProcessError:
         print("Error: The R report failed.")
-        return
+        raise SystemExit(1)
 
     print("Report created successfully.")
-    

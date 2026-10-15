@@ -6,19 +6,18 @@ library(ggplot2)
 library(here)
 library(readr)
 
-
-
 output_tables <- here("outputs", "tables")
 output_figures <- here("outputs", "figures")
 output_report <- here("outputs", "report")
 dir.create(output_figures, showWarnings = FALSE)
 dir.create(output_report, showWarnings = FALSE)
 
+
 # load the exported data
 monthly_density <- read_csv(file.path(output_tables, "monthly_density_by_condition.csv"))
 phase_density <- read_csv(file.path(output_tables, "monthly_density_by_condition_phase.csv"))
 country_density <- read_csv(file.path(output_tables, "monthly_density_by_condition_country.csv"))
-intervention_density <- read_csv(file.path(output_tables, "monthly_density_by_condition_intervention_type.csv"))
+intervention_density <- read_csv(file.path(output_tables, "monthly_density_by_condition_intervention_type.csv"), col_types = cols(skip_reason = col_character()))
 
 # convert the month columns into dates
 monthly_density$month <- as.Date(paste0(monthly_density$month, "-01"))
@@ -26,28 +25,34 @@ phase_density$month <- as.Date(paste0(phase_density$month, "-01"))
 country_density$month <- as.Date(paste0(country_density$month, "-01"))
 intervention_density$month <- as.Date(paste0(intervention_density$month, "-01"))
 
-cond_colors <- c("breast cancer" = "#F8766D", "colorectal cancer" = "#00BA38", "melanoma" = "#619CFF")
-
-
+cond_colors <- c("breast cancer" = "#CC79A7", "colorectal cancer" = "#D55E00", "melanoma" = "#0072B2")
+condition_labels <- c("breast cancer" = "Breast cancer", "colorectal cancer" = "Colorectal cancer", "melanoma" = "Melanoma")
 
 
 # keep the highest activity month for each condition
 peaks <- monthly_density %>% group_by(condition_query) %>% slice_max(active_trial_count, n=1, with_ties=FALSE)
 peaks$label <- paste0(peaks$active_trial_count, " trials\n", format(peaks$month, "%b %Y"))
-peaks$label_y <- peaks$active_trial_count + rank(peaks$active_trial_count) * 20
+peaks$label_y <- peaks$active_trial_count + 45
+
+# Spread the three labels horizontally so their dates stay readable.
+label_offsets <- c("breast cancer" = 4 * 365, "colorectal cancer" = -4 * 365, "melanoma" = 0)
+peaks$label_x <- peaks$month + label_offsets[peaks$condition_query]
 last_active_month <- max(monthly_density$month[monthly_density$active_trial_count > 5])
 
 p1 <- ggplot(monthly_density, aes(x = month, y = active_trial_count, color = condition_query)) +
-  geom_line(size = 0.9) +
+  geom_line(linewidth = 0.9) +
   geom_point(data = peaks, size = 2.5) +
-  geom_text(data = peaks, aes(label = label, y = label_y), vjust = 0, size = 3.2, show.legend = F) +
+  geom_segment(data = peaks, aes(xend = label_x, yend = label_y - 3), linewidth = 0.4, show.legend = FALSE) +
+  geom_text(data = peaks, aes(x = label_x, label = label, y = label_y), vjust = 0, size = 3.2, show.legend = FALSE) +
   ylim(0, max(monthly_density$active_trial_count) * 1.3) +
-  scale_color_manual(values = cond_colors) +
+  scale_color_manual(values = cond_colors, labels = condition_labels) +
   scale_x_date(date_breaks = "5 years", date_labels = "%Y") +
   coord_cartesian(xlim = c(min(monthly_density$month), last_active_month)) +
-  labs(title = "Monthly Active Clinical Trials by Cancer Condition",
-       x = "Month", y = "Number of active trials", color = "Condition") +
-  theme_minimal()
+  labs(title = "Monthly trial activity by cancer condition",
+       x = "Year", y = "Active trials", color = "Condition") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold"), panel.grid.minor = element_blank(),
+        legend.position = "bottom", legend.title = element_blank())
 
 ggsave(file.path(output_figures, "monthly_trial_density_by_condition.png"), p1, width = 9, height = 5)
 
@@ -60,8 +65,6 @@ peak_summary$peak_year <- format(peak_summary$month, "%Y")
 print(peak_summary)
 write_csv(peak_summary, file.path(output_report, "peak_density_summary.csv"))
 
-
-
 # find the peak for each condition and phase
 phase_peak <- phase_density %>%
   filter(group_analyzed == TRUE, phase_bucket != "Unspecified / Not Applicable") %>%
@@ -73,7 +76,7 @@ phase_peak$bar_label <- paste0(phase_peak$active_trial_count, "\n", format(phase
 p2 <- ggplot(phase_peak, aes(x = phase_bucket, y = active_trial_count, fill = condition_query)) +
   geom_col(position = "dodge") +
   geom_text(aes(label = bar_label), position = position_dodge(width = 0.9), vjust = -0.25, size = 3) +
-  scale_fill_manual(values = cond_colors) +
+  scale_fill_manual(values = cond_colors, labels = condition_labels) +
   labs(title = "Peak Concurrent Trial Activity by Phase", x = "Trial phase", y = "Peak active trials", fill = "Condition") +
   theme_minimal() +
   scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
@@ -81,8 +84,6 @@ p2 <- ggplot(phase_peak, aes(x = phase_bucket, y = active_trial_count, fill = co
       panel.grid.minor = element_blank())
 
 ggsave(file.path(output_figures, "peak_trial_density_by_phase.png"), p2, width = 11, height = 6.5)
-
-
 
 
 # keep the top ten countries for each condition
@@ -94,12 +95,15 @@ country_peak <- country_density %>%
   slice_max(active_trial_count, n = 10, with_ties = FALSE) %>%
   ungroup()
 
+# Separate the countries by condition so each panel can have its own order.
+country_peak$country_group <- paste(country_peak$country, country_peak$condition_query)
 
-p3 <- ggplot(country_peak, aes(x = reorder(country, active_trial_count), y = active_trial_count, fill = condition_query)) +
+p3 <- ggplot(country_peak, aes(x = reorder(country_group, active_trial_count), y = active_trial_count, fill = condition_query)) +
   geom_col() +
   geom_text(aes(label = active_trial_count), hjust = -0.1, size = 3) +
   coord_flip() +
-  facet_wrap(~condition_query, scales = "free_y") +
+  facet_wrap(~condition_query, scales = "free_y", labeller = labeller(condition_query = condition_labels)) +
+  scale_x_discrete(labels = setNames(country_peak$country, country_peak$country_group)) +
   scale_fill_manual(values = cond_colors) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(title = "Countries With the Highest Concurrent Trial Activity", x = "", y = "Peak active trials") +
@@ -108,8 +112,6 @@ p3 <- ggplot(country_peak, aes(x = reorder(country, active_trial_count), y = act
 
 
 ggsave(file.path(output_figures, "top_countries_by_peak_trial_density.png"), p3, width = 12, height = 8)
-
-
 
 # clean the intervention names and keep the top ten for each condition
 intervention_peak <- intervention_density %>%
@@ -121,11 +123,15 @@ intervention_peak <- intervention_density %>%
   slice_max(active_trial_count, n = 10, with_ties = FALSE)
 intervention_peak <- ungroup(intervention_peak)
 
-p4 <- ggplot(intervention_peak, aes(x = reorder(intervention_label, active_trial_count), y = active_trial_count, fill = condition_query)) +
+# Separate the intervention types by condition for the same reason.
+intervention_peak$intervention_group <- paste(intervention_peak$intervention_label, intervention_peak$condition_query)
+
+p4 <- ggplot(intervention_peak, aes(x = reorder(intervention_group, active_trial_count), y = active_trial_count, fill = condition_query)) +
   geom_col() +
   geom_text(aes(label = active_trial_count), hjust = -0.1, size = 3) +
   coord_flip() +
-  facet_wrap(~condition_query, scales = "free_y") +
+  facet_wrap(~condition_query, scales = "free_y", labeller = labeller(condition_query = condition_labels)) +
+  scale_x_discrete(labels = setNames(intervention_peak$intervention_label, intervention_peak$intervention_group)) +
   scale_fill_manual(values = cond_colors) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
   labs(title = "Highest Concurrent Trial Activity by Intervention Type", x = "", y = "Peak active trials") +
@@ -133,7 +139,6 @@ p4 <- ggplot(intervention_peak, aes(x = reorder(intervention_label, active_trial
   theme_minimal()
 
 ggsave(file.path(output_figures, "top_intervention_types_by_peak_density.png"), p4, width = 12, height = 8, dpi = 300)
-
 
 
 benchmark_results <- read_csv(file.path(output_tables, "benchmark_results.csv"))
@@ -156,10 +161,11 @@ bench_long <- bind_rows(
              runtime_ms = benchmark_summary$brute_force_ms)
 )
 
-
 p5 <- ggplot(bench_long, aes(x = condition, y = runtime_ms, fill = method)) +
   geom_col(position = "dodge") +
   geom_text(aes(label = paste0(runtime_ms, " ms")), position = position_dodge(width = 0.9), vjust = -0.3, size = 3.5) +
+  scale_x_discrete(labels = condition_labels) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.12))) +
   labs(title = "Sweep-Line vs Brute-Force Runtime", x = "Condition", y = "Runtime (ms)", fill = "Method") +
   theme_minimal() +
   theme(legend.position = "top")

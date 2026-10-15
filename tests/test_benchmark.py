@@ -15,3 +15,15 @@ def test_sweep_line_matches_brute_force():
     sweep_timeline = sweep_result[2]
 
     assert sweep_timeline == brute_result
+
+
+def test_empty_intervals():
+    assert sweep_line([]) == (0, {}, {})
+    assert brute_force([]) == {}
+
+
+def test_overlap_across_new_year():
+    intervals = [("2020-12", "2021-01"), ("2021-01", "2021-01")]
+    expected = {"2020-12": 1, "2021-01": 2}
+    assert sweep_line(intervals)[2] == expected
+    assert brute_force(intervals) == expected
